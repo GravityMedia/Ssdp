@@ -38,3 +38,32 @@ Install via composer:
 ```bash
 php composer.phar install
 ```
+
+##Usage##
+
+```php
+require 'vendor/autoload.php';
+
+use GravityMedia\Ssdp\SsdpEvent;
+use GravityMedia\Ssdp\SsdpMessenger;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+
+// create event dispatcher
+$eventDispatcher = new EventDispatcher();
+
+// create SSDP messenger
+$ssdpMessenger = new SsdpMessenger($eventDispatcher);
+
+// add discovery listener
+$eventDispatcher->addListener(
+    SsdpEvent::DISCOVER,
+    function (SsdpEvent $event) {
+    
+        // dump response
+        var_dump($event->getResponse());
+    }
+);
+
+// discover devices and services
+$ssdpMessenger->discover();
+```
