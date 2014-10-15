@@ -1,0 +1,6 @@
+.idea/
+cache/
+docs/
+vendor/
+composer.phar
+coverage.clover
