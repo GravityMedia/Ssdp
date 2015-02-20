@@ -5,7 +5,7 @@
  * @author Daniel Schröder <daniel.schroeder@gravitymedia.de>
  */
 
-namespace GravityMedia\Ssdp\Test;
+namespace GravityMedia\SsdpTest;
 
 use GravityMedia\Ssdp\SsdpEvent;
 use GravityMedia\Ssdp\SsdpMessenger;
@@ -14,9 +14,9 @@ use PHPUnit_Framework_Assert as Assert;
 /**
  * SSDP messenger test
  *
- * @package GravityMedia\Ssdp\Test
+ * @package GravityMedia\SsdpTest
  */
-class SsdpMessengerTest extends SsdpTestCase
+class SsdpMessengerTest extends \PHPUnit_Framework_TestCase
 {
     /**
      * @covers \GravityMedia\Ssdp\SsdpMessenger::alive()
