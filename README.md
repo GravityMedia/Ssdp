@@ -1,13 +1,14 @@
 #Ssdp
-[![Latest Stable Version](https://poser.pugx.org/gravitymedia/ssdp/v/stable.svg)](https://packagist.org/packages/gravitymedia/ssdp)
-[![Total Downloads](https://poser.pugx.org/gravitymedia/ssdp/downloads.svg)](https://packagist.org/packages/gravitymedia/ssdp)
-[![Latest Unstable Version](https://poser.pugx.org/gravitymedia/ssdp/v/unstable.svg)](https://packagist.org/packages/gravitymedia/ssdp)
-[![License](https://poser.pugx.org/gravitymedia/ssdp/license.svg)](https://packagist.org/packages/gravitymedia/ssdp)
-[![Build Status](https://travis-ci.org/GravityMedia/Ssdp.svg?branch=master)](https://travis-ci.org/GravityMedia/Ssdp)
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/GravityMedia/Ssdp/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/GravityMedia/Ssdp/?branch=master)
-[![Code Coverage](https://scrutinizer-ci.com/g/GravityMedia/Ssdp/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/GravityMedia/Ssdp/?branch=master)
 
 Simple Service Discovery Protocol (SSDP) library for PHP
+
+[![Packagist](https://img.shields.io/packagist/v/gravitymedia/ssdp.svg)](https://packagist.org/packages/gravitymedia/ssdp)
+[![Downloads](https://img.shields.io/packagist/dt/gravitymedia/ssdp.svg)](https://packagist.org/packages/gravitymedia/ssdp)
+[![License](https://img.shields.io/packagist/l/gravitymedia/ssdp.svg)](https://packagist.org/packages/gravitymedia/ssdp)
+[![Build](https://img.shields.io/travis/GravityMedia/Ssdp.svg)](https://travis-ci.org/GravityMedia/Ssdp)
+[![Code Quality](https://img.shields.io/scrutinizer/g/GravityMedia/Ssdp.svg)](https://scrutinizer-ci.com/g/GravityMedia/Ssdp/?branch=master)
+[![Coverage](https://img.shields.io/scrutinizer/coverage/g/GravityMedia/Ssdp.svg)](https://scrutinizer-ci.com/g/GravityMedia/Ssdp/?branch=master)
+[![PHP Dependencies](https://www.versioneye.com/user/projects/54a6c39d27b014005400004b/badge.svg)](https://www.versioneye.com/user/projects/54a6c39d27b014005400004b)
 
 ##Requirements##
 
@@ -20,7 +21,7 @@ This library has the following requirements:
 Install composer in your project:
 
 ```bash
-curl -s https://getcomposer.org/installer | php
+$ curl -s https://getcomposer.org/installer | php
 ```
 
 Create a `composer.json` file in your project root:
@@ -36,7 +37,7 @@ Create a `composer.json` file in your project root:
 Install via composer:
 
 ```bash
-php composer.phar install
+$ php composer.phar install
 ```
 
 ##Usage##
