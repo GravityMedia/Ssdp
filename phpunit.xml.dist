@@ -13,7 +13,7 @@
          verbose="true">
     <testsuites>
         <testsuite name="Ssdp test suite">
-            <directory>tests/</directory>
+            <directory>tests/src/</directory>
         </testsuite>
     </testsuites>
 
