@@ -6,7 +6,7 @@
 [![Coverage Status](https://img.shields.io/scrutinizer/coverage/g/GravityMedia/Ssdp.svg)](https://scrutinizer-ci.com/g/GravityMedia/Ssdp/code-structure)
 [![Quality Score](https://img.shields.io/scrutinizer/g/GravityMedia/Ssdp.svg)](https://scrutinizer-ci.com/g/GravityMedia/Ssdp)
 [![Total Downloads](https://img.shields.io/packagist/dt/gravitymedia/ssdp.svg)](https://packagist.org/packages/gravitymedia/ssdp)
-[![Dependency Status](https://img.shields.io/versioneye/d/php/gravitymedia:ssdp.svg)](https://www.versioneye.com/user/projects/54a6c39d27b014005400004b)
+[![Dependency Status](https://img.shields.io/versioneye/d/php/gravitymedia:ssdp.svg)](https://www.versioneye.com/user/projects/54a6c3ea27b014d85a000192)
 
 Simple Service Discovery Protocol (SSDP) library for PHP.
 
