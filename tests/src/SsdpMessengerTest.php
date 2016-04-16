@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the Ssdp project
+ * This file is part of the Ssdp project.
  *
  * @author Daniel Schröder <daniel.schroeder@gravitymedia.de>
  */
@@ -15,12 +15,25 @@ use PHPUnit_Framework_Assert as Assert;
  * SSDP messenger test
  *
  * @package GravityMedia\SsdpTest
+ *
+ * @covers GravityMedia\Ssdp\SsdpMessenger
+ * @uses   GravityMedia\Ssdp\Message\AbstractMessage
+ * @uses   GravityMedia\Ssdp\Message\Request\Advertisement\AbstractMessage
+ * @uses   GravityMedia\Ssdp\Message\Request\Advertisement\Alive
+ * @uses   GravityMedia\Ssdp\Message\Request\Advertisement\Byebye
+ * @uses   GravityMedia\Ssdp\Message\Request\Advertisement\Update
+ * @uses   GravityMedia\Ssdp\Message\Request\Search\AbstractMessage
+ * @uses   GravityMedia\Ssdp\Message\Request\Search\Discover
+ * @uses   GravityMedia\Ssdp\Message\Response\Search\AbstractMessage
+ * @uses   GravityMedia\Ssdp\Message\Response\Search\Discover
+ * @uses   GravityMedia\Ssdp\NotificationType
+ * @uses   GravityMedia\Ssdp\Socket\Socket
+ * @uses   GravityMedia\Ssdp\SearchTarget
+ * @uses   GravityMedia\Ssdp\SsdpEvent
+ * @uses   GravityMedia\Ssdp\UniqueServiceName
  */
 class SsdpMessengerTest extends \PHPUnit_Framework_TestCase
 {
-    /**
-     * @covers \GravityMedia\Ssdp\SsdpMessenger::alive()
-     */
     public function testAlive()
     {
         $eventDispatcherMock = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcher');
@@ -34,9 +47,6 @@ class SsdpMessengerTest extends \PHPUnit_Framework_TestCase
         $ssdpMessenger->alive();
     }
 
-    /**
-     * @covers \GravityMedia\Ssdp\SsdpMessenger::byebye()
-     */
     public function testByebye()
     {
         $eventDispatcherMock = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcher');
@@ -50,9 +60,6 @@ class SsdpMessengerTest extends \PHPUnit_Framework_TestCase
         $ssdpMessenger->byebye();
     }
 
-    /**
-     * @covers \GravityMedia\Ssdp\SsdpMessenger::discover()
-     */
     public function testDiscover()
     {
         $eventDispatcherMock = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcher');
@@ -69,9 +76,6 @@ class SsdpMessengerTest extends \PHPUnit_Framework_TestCase
         $ssdpMessenger->discover();
     }
 
-    /**
-     * @covers \GravityMedia\Ssdp\SsdpMessenger::update()
-     */
     public function testUpdate()
     {
         $eventDispatcherMock = $this->getMock('Symfony\Component\EventDispatcher\EventDispatcher');

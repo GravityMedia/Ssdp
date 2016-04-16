@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the Ssdp project
+ * This file is part of the Ssdp project.
  *
  * @author Daniel Schröder <daniel.schroeder@gravitymedia.de>
  */

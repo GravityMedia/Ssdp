@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Magickly" default="test">
+    <property name="phpunit.binary" value="vendor/bin/phpunit"/>
+    <property name="sami.binary" value="vendor/bin/sami.php"/>
+    <property name="sami.config" value="sami-config.php"/>
+
+    <target name="test" description="Testing">
+        <exec
+            executable="${phpunit.binary}"
+            passthru="true"
+            checkreturn="true">
+            <arg value="--coverage-clover=coverage.clover"/>
+            <arg value="--coverage-text"/>
+            <arg value="--verbose"/>
+        </exec>
+    </target>
+
+    <target name="doc" description="Generating documentation">
+        <exec
+            executable="${sami.binary}"
+            passthru="true"
+            checkreturn="true">
+            <arg value="update"/>
+            <arg value="--verbose"/>
+            <arg value="${sami.config}"/>
+        </exec>
+    </target>
+</project>
