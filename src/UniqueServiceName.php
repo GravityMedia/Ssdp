@@ -7,126 +7,101 @@
 
 namespace GravityMedia\Ssdp;
 
-use Rhumsaa\Uuid\Uuid;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Unique service name
  *
  * @package GravityMedia\Ssdp
  */
-class UniqueServiceName
+class UniqueServiceName extends AbstractIdentifier
 {
     /**
-     * @var Uuid
-     */
-    protected $identifier;
-
-    /**
-     * @var NotificationType
-     */
-    protected $notificationType;
-
-    /**
-     * Return string representation
+     * Create unique service name from string.
      *
-     * @return string
+     * @param string $uniqueServiceName
+     *
+     * @return self
      */
-    public function __toString()
+    public static function fromString($uniqueServiceName)
     {
-        return $this->toString();
+        $instance = new static();
+        $uniqueServiceName = strtolower(trim($uniqueServiceName));
+
+        $parts = explode('::', $uniqueServiceName, 2);
+        if (!substr($parts[0], 0, 4) === 'uuid') {
+            throw new \InvalidArgumentException('Invalid string.');
+        }
+
+        $instance->setId(Uuid::fromString(substr($parts[0], 5)));
+        if (count($parts) < 2) {
+            return $instance;
+        }
+
+        if ($parts[1] === 'upnp:rootdevice') {
+            return $instance->setRootDevice(true);
+        }
+
+        $parts = explode(':', $parts[1], 5);
+        if (5 !== count($parts) || 'urn' !== array_shift($parts)) {
+            throw new \InvalidArgumentException('Invalid string.');
+        }
+
+        $instance->setDomainName(array_shift($parts));
+
+        $name = array_shift($parts);
+
+        if ('device' === $name) {
+            return $instance
+                ->setDevice(true)
+                ->setType(array_shift($parts))
+                ->setVersion((int)array_shift($parts));
+        }
+
+        if ('service' === $name) {
+            return $instance
+                ->setService(true)
+                ->setType(array_shift($parts))
+                ->setVersion((int)array_shift($parts));
+        }
+
+        throw new \InvalidArgumentException('Invalid string.');
     }
 
     /**
-     * Return unique service name as string
-     *
-     * @return string
+     * {@inheritdoc}
      */
     public function toString()
     {
-        $notificationType = $this->getNotificationType();
-        if (NotificationType::UUID_TOKEN === $notificationType->getToken()) {
-            return $notificationType->toString();
+        $id = $this->getId();
+        if (null === $id) {
+            $id = Uuid::fromString(Uuid::NIL);
         }
-        $identifier = $this->getIdentifier();
-        if (is_null($identifier)) {
-            return $notificationType->toString();
+
+        if ($this->isRootDevice()) {
+            return sprintf('uuid:%s::upnp:rootdevice', $id);
         }
-        return sprintf(
-            '%s::%s',
-            $identifier,
-            $notificationType
-        );
-    }
 
-    /**
-     * Create unique service name from string
-     *
-     * @param string $string
-     *
-     * @return $this
-     */
-    public static function fromString($string)
-    {
-        /** @var UniqueServiceName $uniqueServiceName */
-        $uniqueServiceName = new static();
-        $tuple = explode('::', $string, 2);
-        $uniqueServiceName->setIdentifier(Uuid::fromString(array_shift($tuple)));
-        if (!empty($tuple)) {
-            $uniqueServiceName->setNotificationType(NotificationType::fromString(array_pop($tuple)));
-
+        if ($this->isDevice()) {
+            return sprintf(
+                'uuid:%s::urn:%s:device:%s:%u',
+                $id,
+                $this->getDomainName(),
+                $this->getType(),
+                $this->getVersion()
+            );
         }
-        return $uniqueServiceName;
-    }
 
-    /**
-     * Get identifier
-     *
-     * @return Uuid
-     */
-    public function getIdentifier()
-    {
-        if (is_null($this->identifier)) {
-            return Uuid::fromString(Uuid::NIL);
+        if ($this->isService()) {
+            return sprintf(
+                'uuid:%s::urn:%s:service:%s:%u',
+                $id,
+                $this->getDomainName(),
+                $this->getType(),
+                $this->getVersion()
+            );
         }
-        return $this->identifier;
-    }
 
-    /**
-     * Set identifier
-     *
-     * @param Uuid $identifier
-     *
-     * @return $this
-     */
-    public function setIdentifier(Uuid $identifier)
-    {
-        $this->identifier = $identifier;
-        return $this;
-    }
-
-    /**
-     * Get notification type
-     *
-     * @return NotificationType
-     */
-    public function getNotificationType()
-    {
-        if (is_null($this->notificationType)) {
-            return NotificationType::fromString();
-        }
-        return $this->notificationType;
-    }
-
-    /**
-     * Set notification type
-     *
-     * @param NotificationType $notificationType
-     *
-     * @return $this
-     */
-    public function setNotificationType(NotificationType $notificationType)
-    {
-        $this->notificationType = $notificationType;
-        return $this;
+        return sprintf('uuid:%s', $id);
     }
 }

@@ -7,185 +7,83 @@
 
 namespace GravityMedia\Ssdp;
 
-use GravityMedia\Urn\Urn;
-use InvalidArgumentException;
-use Rhumsaa\Uuid\Uuid;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Notification type
  *
  * @package GravityMedia\Ssdp
  */
-class NotificationType
+class NotificationType extends AbstractIdentifier
 {
     /**
-     * Default notification type
-     */
-    const DEFAULT_NOTIFICATION_TYPE = 'upnp:rootdevice';
-
-    /**
-     * UPNP token
-     */
-    const UPNP_TOKEN = 'upnp';
-
-    /**
-     * UUID token
-     */
-    const UUID_TOKEN = 'uuid';
-
-    /**
-     * URN token
-     */
-    const URN_TOKEN = 'urn';
-
-    /**
-     * @var string
-     */
-    protected $token;
-
-    /**
-     * @var string|Uuid|Urn
-     */
-    protected $value;
-
-    /**
-     * Return string representation
+     * Create notification type from string.
      *
-     * @return string
+     * @param string $searchTarget
+     *
+     * @return self
      */
-    public function __toString()
+    public static function fromString($searchTarget)
     {
-        return $this->toString();
+        $instance = new static();
+        $searchTarget = strtolower(trim($searchTarget));
+
+        if ($searchTarget === 'upnp:rootdevice') {
+            return $instance->setRootDevice(true);
+        }
+
+        if (substr($searchTarget, 0, 4) === 'upnp') {
+            return $instance->setId(Uuid::fromString(substr($searchTarget, 5)));
+        }
+
+        $parts = explode(':', $searchTarget, 5);
+        if (5 !== count($parts) || 'urn' !== array_shift($parts)) {
+            throw new \InvalidArgumentException('Invalid string.');
+        }
+
+        $instance->setDomainName(array_shift($parts));
+
+        $name = array_shift($parts);
+
+        if ('device' === $name) {
+            return $instance
+                ->setDevice(true)
+                ->setType(array_shift($parts))
+                ->setVersion((int)array_shift($parts));
+        }
+
+        if ('service' === $name) {
+            return $instance
+                ->setService(true)
+                ->setType(array_shift($parts))
+                ->setVersion((int)array_shift($parts));
+        }
+
+        throw new \InvalidArgumentException('Invalid string.');
     }
 
     /**
-     * Return notification type as string
-     *
-     * @return string
+     * {@inheritdoc}
      */
     public function toString()
     {
-        return sprintf(
-            '%s:%s',
-            $this->getToken(),
-            $this->getValue()
-        );
-    }
-
-    /**
-     * Create notification type from string
-     *
-     * @param string $string
-     *
-     * @throws InvalidArgumentException
-     * @return $this
-     */
-    public static function fromString($string = self::DEFAULT_NOTIFICATION_TYPE)
-    {
-        $tuple = explode(':', $string, 2);
-        $token = array_shift($tuple);
-        if (self::UUID_TOKEN === strtolower($token)) {
-            return self::fromUuid(Uuid::fromString($string));
+        if ($this->isRootDevice()) {
+            return 'upnp:rootdevice';
         }
-        if (self::URN_TOKEN === strtolower($token)) {
-            return self::fromUrn(Urn::fromString($string));
+
+        if ($this->isDevice()) {
+            return sprintf('urn:%s:device:%s:%u', $this->getDomainName(), $this->getType(), $this->getVersion());
         }
-        $notificationType = new static();
-        $notificationType->setToken($token);
-        $notificationType->setValue(array_pop($tuple));
-        return $notificationType;
-    }
 
-    /**
-     * Create notification type from UUID
-     *
-     * @param Uuid $uuid
-     *
-     * @throws InvalidArgumentException
-     * @return $this
-     */
-    public static function fromUuid(Uuid $uuid)
-    {
-        $notificationType = new static();
-        $notificationType->setToken(self::UUID_TOKEN);
-        $notificationType->setValue($uuid);
-        return $notificationType;
-    }
-
-    /**
-     * Create notification type from URN
-     *
-     * @param Urn $urn
-     *
-     * @throws InvalidArgumentException
-     * @return $this
-     */
-    public static function fromUrn(Urn $urn)
-    {
-        $notificationType = new static();
-        $notificationType->setToken(self::URN_TOKEN);
-        $notificationType->setValue($urn);
-        return $notificationType;
-    }
-
-    /**
-     * Get valid tokens
-     *
-     * @return string[]
-     */
-    protected function getValidTokens()
-    {
-        return array(self::UPNP_TOKEN, self::UUID_TOKEN, self::URN_TOKEN);
-    }
-
-    /**
-     * Get token
-     *
-     * @return string
-     */
-    public function getToken()
-    {
-        return $this->token;
-    }
-
-    /**
-     * Set token
-     *
-     * @param string $token
-     *
-     * @throws InvalidArgumentException
-     * @return $this
-     */
-    public function setToken($token)
-    {
-        $token = strtolower($token);
-        if (!in_array($token, $this->getValidTokens())) {
-            throw new InvalidArgumentException(sprintf('Invalid token argument "%s"', $token));
+        if ($this->isService()) {
+            return sprintf('urn:%s:service:%s:%u', $this->getDomainName(), $this->getType(), $this->getVersion());
         }
-        $this->token = $token;
-        return $this;
-    }
 
-    /**
-     * Get value
-     *
-     * @return string|Uuid|Urn
-     */
-    public function getValue()
-    {
-        return $this->value;
-    }
+        $id = $this->getId();
+        if (null === $id) {
+            $id = Uuid::fromString(Uuid::NIL);
+        }
 
-    /**
-     * Set value
-     *
-     * @param string|Uuid|Urn $value
-     *
-     * @return $this
-     */
-    public function setValue($value)
-    {
-        $this->value = $value;
-        return $this;
+        return sprintf('uuid:%s', $id);
     }
 }

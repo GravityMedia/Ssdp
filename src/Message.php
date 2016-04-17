@@ -5,20 +5,16 @@
  * @author Daniel Schröder <daniel.schroeder@gravitymedia.de>
  */
 
-namespace GravityMedia\Ssdp\Message\Response\Search;
+namespace GravityMedia\Ssdp;
 
-use DateTime;
-use GravityMedia\Ssdp\SsdpInterface;
-use GravityMedia\Ssdp\SearchTarget;
-use GravityMedia\Ssdp\UniqueServiceName;
-use Guzzle\Http\Url;
+use Psr\Http\Message\UriInterface;
 
 /**
- * Abstract search response message
+ * Message class
  *
- * @package GravityMedia\Ssdp\Message\Response\Search
+ * @package GravityMedia\Ssdp
  */
-abstract class AbstractMessage extends \GravityMedia\Ssdp\Message\AbstractMessage
+class Message
 {
     /**
      * @var int
@@ -26,12 +22,12 @@ abstract class AbstractMessage extends \GravityMedia\Ssdp\Message\AbstractMessag
     protected $lifetime;
 
     /**
-     * @var DateTime
+     * @var \DateTimeInterface
      */
     protected $date;
 
     /**
-     * @var Url
+     * @var UriInterface
      */
     protected $descriptionUrl;
 
@@ -41,14 +37,14 @@ abstract class AbstractMessage extends \GravityMedia\Ssdp\Message\AbstractMessag
     protected $serverString;
 
     /**
-     * @var SearchTarget
+     * @var string
      */
-    protected $searchTarget;
+    protected $searchTargetString;
 
     /**
-     * @var UniqueServiceName
+     * @var string
      */
-    protected $uniqueServiceName;
+    protected $uniqueServiceNameString;
 
     /**
      * Get lifetime
@@ -57,9 +53,6 @@ abstract class AbstractMessage extends \GravityMedia\Ssdp\Message\AbstractMessag
      */
     public function getLifetime()
     {
-        if (is_null($this->lifetime)) {
-            return SsdpInterface::DEFAULT_MESSAGE_LIFETIME;
-        }
         return $this->lifetime;
     }
 
@@ -79,24 +72,21 @@ abstract class AbstractMessage extends \GravityMedia\Ssdp\Message\AbstractMessag
     /**
      * Get date
      *
-     * @return DateTime
+     * @return \DateTimeInterface
      */
     public function getDate()
     {
-        if (is_null($this->date)) {
-            return new DateTime();
-        }
         return $this->date;
     }
 
     /**
      * Set date
      *
-     * @param DateTime $date
+     * @param \DateTimeInterface $date
      *
      * @return $this
      */
-    public function setDate($date)
+    public function setDate(\DateTimeInterface $date)
     {
         $this->date = $date;
         return $this;
@@ -105,24 +95,21 @@ abstract class AbstractMessage extends \GravityMedia\Ssdp\Message\AbstractMessag
     /**
      * Get description URL
      *
-     * @return Url
+     * @return UriInterface
      */
     public function getDescriptionUrl()
     {
-        if (is_null($this->descriptionUrl)) {
-            return Url::factory(SsdpInterface::DEFAULT_DESCRIPTION_URL);
-        }
         return $this->descriptionUrl;
     }
 
     /**
      * Set description URL
      *
-     * @param Url $descriptionUrl
+     * @param UriInterface $descriptionUrl
      *
      * @return $this
      */
-    public function setDescriptionUrl(Url $descriptionUrl)
+    public function setDescriptionUrl(UriInterface $descriptionUrl)
     {
         $this->descriptionUrl = $descriptionUrl;
         return $this;
@@ -135,15 +122,6 @@ abstract class AbstractMessage extends \GravityMedia\Ssdp\Message\AbstractMessag
      */
     public function getServerString()
     {
-        if (is_null($this->serverString)) {
-            return sprintf(
-                '%s/%s UPnP/1.0 %s/%s',
-                PHP_OS,
-                php_uname('r'),
-                SsdpInterface::NAME,
-                SsdpInterface::VERSION
-            );
-        }
         return $this->serverString;
     }
 
@@ -163,49 +141,46 @@ abstract class AbstractMessage extends \GravityMedia\Ssdp\Message\AbstractMessag
     /**
      * Get search target
      *
-     * @return SearchTarget
+     * @return string
      */
-    public function getSearchTarget()
+    public function getSearchTargetString()
     {
-        if (is_null($this->searchTarget)) {
-            return SearchTarget::fromString();
-        }
-        return $this->searchTarget;
+        return $this->searchTargetString;
     }
 
     /**
      * Set search target
      *
-     * @param SearchTarget $searchTarget
+     * @param string $searchTargetString
      *
      * @return $this
      */
-    public function setSearchTarget(SearchTarget $searchTarget)
+    public function setSearchTargetString($searchTargetString)
     {
-        $this->searchTarget = $searchTarget;
+        $this->searchTargetString = $searchTargetString;
         return $this;
     }
 
     /**
      * Get unique service name
      *
-     * @return UniqueServiceName
+     * @return string
      */
-    public function getUniqueServiceName()
+    public function getUniqueServiceNameString()
     {
-        return $this->uniqueServiceName;
+        return $this->uniqueServiceNameString;
     }
 
     /**
      * Set unique service name
      *
-     * @param UniqueServiceName $uniqueServiceName
+     * @param string $uniqueServiceNameString
      *
      * @return $this
      */
-    public function setUniqueServiceName($uniqueServiceName)
+    public function setUniqueServiceNameString($uniqueServiceNameString)
     {
-        $this->uniqueServiceName = $uniqueServiceName;
+        $this->uniqueServiceNameString = $uniqueServiceNameString;
         return $this;
     }
 }

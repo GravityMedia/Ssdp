@@ -15,30 +15,56 @@ namespace GravityMedia\Ssdp;
 class SearchTarget extends NotificationType
 {
     /**
-     * Default search target
+     * Return whether to search for all devices
+     *
+     * @return bool
      */
-    const DEFAULT_SEARCH_TARGET = 'ssdp:all';
-
-    /**
-     * SSDP token
-     */
-    const SSDP_TOKEN = 'ssdp';
-
-    /**
-     * @inheritdoc
-     */
-    public static function fromString($string = self::DEFAULT_SEARCH_TARGET)
+    public function isAll()
     {
-        return parent::fromString($string);
+        if (null !== $this->getId()) {
+            return false;
+        }
+
+        if ($this->isRootDevice()) {
+            return false;
+        }
+
+        if ($this->isDevice()) {
+            return false;
+        }
+
+        if ($this->isService()) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
-     * @inheritdoc
+     * Create search target from string.
+     *
+     * @param string $searchTarget
+     *
+     * @return self
      */
-    protected function getValidTokens()
+    public static function fromString($searchTarget)
     {
-        $validTokens = parent::getValidTokens();
-        array_unshift($validTokens, self::SSDP_TOKEN);
-        return $validTokens;
+        if (strtolower(trim($searchTarget)) === 'ssdp:all') {
+            return new static();
+        }
+
+        return parent::fromString($searchTarget);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function toString()
+    {
+        if ($this->isAll()) {
+            return 'ssdp:all';
+        }
+
+        return parent::toString();
     }
 }

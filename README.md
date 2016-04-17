@@ -37,27 +37,30 @@ $ php composer.phar require gravitymedia/ssdp
 require 'vendor/autoload.php';
 
 // Import classes
-use GravityMedia\Ssdp\SsdpEvent;
-use GravityMedia\Ssdp\SsdpMessenger;
-use Symfony\Component\EventDispatcher\EventDispatcher;
+use GravityMedia\Ssdp\Client;
+use GravityMedia\Ssdp\Options\DiscoverOptions;
+use React\EventLoop\Factory as LoopFactory;
 
 // Create event dispatcher
-$eventDispatcher = new EventDispatcher();
+$loop = LoopFactory::create();
+$client = new Client($loop);
 
-// Create SSDP messenger
-$ssdpMessenger = new SsdpMessenger($eventDispatcher);
+$options = new DiscoverOptions();
 
-// Add discovery listener
-$eventDispatcher->addListener(
-    SsdpEvent::DISCOVER,
-    function (SsdpEvent $event) {
-        // Dump response
-        var_dump($event->getResponse());
+$client->discover($options)->then(
+    function () {
+        print 'Discovery completed.' . PHP_EOL;
+    },
+    function ($reason) {
+        print 'An error occurred: ' . $reason . PHP_EOL;
+    },
+    function ($progress) {
+        print 'Device found:' . PHP_EOL;
+        var_dump($progress);
     }
 );
 
-// Discover devices and services
-$ssdpMessenger->discover();
+$loop->run();
 ```
 
 ## Testing
