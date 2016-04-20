@@ -7,15 +7,15 @@
 
 namespace GravityMedia\SsdpTest;
 
-use Clue\React\Multicast\Factory as MulticastFactory;
 use GravityMedia\Ssdp\Client;
 use GravityMedia\Ssdp\Options\DiscoverOptions;
-use React\Datagram\SocketInterface;
-use React\EventLoop\Factory as LoopFactory;
-use React\EventLoop\LoopInterface;
-use React\EventLoop\Timer\TimerInterface;
-use React\Promise\CancellablePromiseInterface;
-use React\Promise\PromiseInterface;
+use GravityMedia\Ssdp\Request\Factory as RequestFactory;
+use GravityMedia\Ssdp\Request\SearchRequest;
+use Prophecy\Argument;
+use Psr\Http\Message\RequestInterface;
+use Socket\Raw\Factory as SocketFactory;
+use Socket\Raw\Socket;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Client test class
@@ -25,97 +25,48 @@ use React\Promise\PromiseInterface;
  * @covers GravityMedia\Ssdp\Client
  * @uses   GravityMedia\Ssdp\AbstractIdentifier
  * @uses   GravityMedia\Ssdp\Options\DiscoverOptions
- * @uses   GravityMedia\Ssdp\Request\Factory\DiscoverFactory
+ * @uses   GravityMedia\Ssdp\Request\Factory
  * @uses   GravityMedia\Ssdp\Request\SearchRequest
  * @uses   GravityMedia\Ssdp\SearchTarget
- * @uses   GravityMedia\Ssdp\Message
  */
-class ClientTest extends TestCase
+class ClientTest extends \PHPUnit_Framework_TestCase
 {
-    public function testDiscoverCancel()
+    public function testDiscover()
     {
-        $socket = $this->getMock(SocketInterface::class);
+        $eventDispatcher = $this->prophesize(EventDispatcherInterface::class);
+
+        $socket = $this->prophesize(Socket::class);
+
+        $socketFactory = $this->prophesize(SocketFactory::class);
+        $socketFactory->createUdp4()->willReturn($socket->reveal());
+
+        $request = $this->prophesize(RequestInterface::class);
+        $request->getMethod()->willReturn(SearchRequest::METHOD);
+        $request->getHeaders()->willReturn([]);
+        $request->getBody()->willReturn('');
+        $request->getRequestTarget()->willReturn('*');
+        $request->getProtocolVersion()->willReturn('1.1');
+
+        $requestFactory = $this->prophesize(RequestFactory::class);
+        $requestFactory
+            ->createDiscoverRequest(Argument::type(DiscoverOptions::class))
+            ->willReturn($request->reveal());
+
+        $discoverOptions = $this->prophesize(DiscoverOptions::class);
+
+        $client = new Client();
+        $client->setEventDispatcher($eventDispatcher->reveal());
+        $client->setSocketFactory($socketFactory->reveal());
+        $client->setRequestFactory($requestFactory->reveal());
+
+        $client->discover($discoverOptions->reveal());
+
         $socket
-            ->expects($this->once())
-            ->method('send');
+            ->sendTo(Argument::type('string'), 0, sprintf('%s:%s', Client::MULTICAST_ADDRESS, Client::MULTICAST_PORT))
+            ->shouldHaveBeenCalled();
+
         $socket
-            ->expects($this->once())
-            ->method('close');
-
-        $multicastFactory = $this->getMockBuilder(MulticastFactory::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $multicastFactory
-            ->expects($this->once())
-            ->method('createSender')
-            ->will($this->returnValue($socket));
-
-        $timer = $this->getMock(TimerInterface::class);
-        $timer
-            ->expects($this->once())
-            ->method('cancel');
-
-        $loop = $this->getMock(LoopInterface::class);
-        $loop
-            ->expects($this->once())
-            ->method('addTimer')
-            ->will($this->returnValue($timer));
-
-        $client = new Client($loop);
-        $client->setMulticastFactory($multicastFactory);
-
-        $options = new DiscoverOptions();
-        $promise = $client->discover($options);
-        $this->assertInstanceOf(PromiseInterface::class, $promise);
-        if (!($promise instanceof CancellablePromiseInterface)) {
-            $this->markTestSkipped();
-        }
-
-        $promise->cancel();
-        $promise->then(
-            null,
-            $this->expectCallableOnce()
-        );
+            ->recvFrom(Argument::type('int'), MSG_WAITALL, Argument::any())
+            ->shouldHaveBeenCalled();
     }
-
-    public function testDiscoverTimeout()
-    {
-        $loop = LoopFactory::create();
-        $client = new Client($loop);
-
-        $options = new DiscoverOptions();
-        $options->setMaximumWaitTime(0.01);
-
-        $promise = $client->discover($options);
-        $loop->run();
-
-        $promise->then(
-            $this->expectCallableOnce(),
-            $this->expectCallableNever(),
-            $this->expectCallableNever()
-        );
-    }
-
-    /*public function testDiscover()
-    {
-        $loop = LoopFactory::create();
-        $client = new Client($loop);
-
-        $options = new DiscoverOptions();
-
-        $client->discover($options)->then(
-            function () {
-                echo 'Discovery completed.' . PHP_EOL;
-            },
-            function ($reason) {
-                echo 'An error occurred: ' . $reason . PHP_EOL;
-            },
-            function ($progress) {
-                print 'Device found:' . PHP_EOL;
-                var_dump($progress);
-            }
-        );
-
-        $loop->run();
-    }*/
 }

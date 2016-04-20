@@ -7,18 +7,17 @@
 
 namespace GravityMedia\Ssdp;
 
-use Clue\React\Multicast\Factory as MulticastFactory;
+use GravityMedia\Ssdp\Event\DiscoverEvent;
+use GravityMedia\Ssdp\Exception\DiscoverException;
 use GravityMedia\Ssdp\Options\AliveOptions;
 use GravityMedia\Ssdp\Options\ByebyeOptions;
 use GravityMedia\Ssdp\Options\DiscoverOptions;
 use GravityMedia\Ssdp\Options\UpdateOptions;
-use GravityMedia\Ssdp\Request\Factory\AliveFactory;
-use GravityMedia\Ssdp\Request\Factory\ByebyeFactory;
-use GravityMedia\Ssdp\Request\Factory\DiscoverFactory;
-use GravityMedia\Ssdp\Request\Factory\UpdateFactory;
-use React\EventLoop\LoopInterface;
-use React\Promise\Deferred;
-use React\Promise\PromiseInterface;
+use GravityMedia\Ssdp\Request\Factory as RequestFactory;
+use Socket\Raw\Exception as SocketException;
+use Socket\Raw\Factory as SocketFactory;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Zend\Diactoros\Request\Serializer as RequestSerializer;
 use Zend\Diactoros\Response\Serializer as ResponseSerializer;
 use Zend\Diactoros\Uri;
@@ -41,126 +40,102 @@ class Client
     const MULTICAST_PORT = 1900;
 
     /**
-     * @var LoopInterface
+     * @var EventDispatcherInterface
      */
-    private $loop;
+    protected $eventDispatcher;
 
     /**
-     * @var MulticastFactory
+     * @var SocketFactory
      */
-    private $multicastFactory;
+    protected $socketFactory;
 
     /**
-     * @var AliveFactory
+     * @var RequestFactory
      */
-    protected $aliveRequestFactory;
+    protected $requestFactory;
 
     /**
-     * @var ByebyeFactory
-     */
-    protected $byebyeRequestFactory;
-
-    /**
-     * @var DiscoverFactory
-     */
-    protected $discoverRequestFactory;
-
-    /**
-     * @var UpdateFactory
-     */
-    protected $updateRequestFactory;
-
-    /**
-     * Create client object
+     * Get event dispatcher
      *
-     * @param LoopInterface $loop
+     * @return EventDispatcherInterface
      */
-    public function __construct(LoopInterface $loop)
+    public function getEventDispatcher()
     {
-        $this->loop = $loop;
-    }
-
-    /**
-     * Get multicast factory
-     *
-     * @return MulticastFactory
-     */
-    public function getMulticastFactory()
-    {
-        if (null === $this->multicastFactory) {
-            $this->multicastFactory = new MulticastFactory($this->loop);
+        if (null === $this->eventDispatcher) {
+            $this->eventDispatcher = new EventDispatcher();
         }
 
-        return $this->multicastFactory;
+        return $this->eventDispatcher;
     }
 
     /**
-     * Set multicast factory
+     * Set event dispatcher
      *
-     * @param MulticastFactory $multicastFactory
+     * @param EventDispatcherInterface $eventDispatcher
      *
      * @return $this
      */
-    public function setMulticastFactory(MulticastFactory $multicastFactory)
+    public function setEventDispatcher(EventDispatcherInterface $eventDispatcher)
     {
-        $this->multicastFactory = $multicastFactory;
+        $this->eventDispatcher = $eventDispatcher;
+
         return $this;
     }
 
     /**
-     * Get alive request factory
+     * Get socket factory
      *
-     * @return AliveFactory
+     * @return SocketFactory
      */
-    public function getAliveRequestFactory()
+    public function getSocketFactory()
     {
-        if (null === $this->aliveRequestFactory) {
-            $this->aliveRequestFactory = new AliveFactory();
+        if (null === $this->socketFactory) {
+            $this->socketFactory = new SocketFactory();
         }
 
-        return $this->aliveRequestFactory;
+        return $this->socketFactory;
     }
 
     /**
-     * Get byebye request factory
+     * Set socket factory
      *
-     * @return ByebyeFactory
+     * @param SocketFactory $socketFactory
+     *
+     * @return $this
      */
-    public function getByebyeRequestFactory()
+    public function setSocketFactory(SocketFactory $socketFactory)
     {
-        if (null === $this->byebyeRequestFactory) {
-            $this->byebyeRequestFactory = new ByebyeFactory();
-        }
+        $this->socketFactory = $socketFactory;
 
-        return $this->byebyeRequestFactory;
+        return $this;
     }
 
     /**
-     * Get discover request factory
+     * Get request factory
      *
-     * @return DiscoverFactory
+     * @return RequestFactory
      */
-    protected function getDiscoverRequestFactory()
+    public function getRequestFactory()
     {
-        if (null === $this->discoverRequestFactory) {
-            $this->discoverRequestFactory = new DiscoverFactory();
+        if (null === $this->requestFactory) {
+            $this->requestFactory = new RequestFactory();
         }
 
-        return $this->discoverRequestFactory;
+        return $this->requestFactory;
     }
 
     /**
-     * Get update request factory
+     * Set request factory
      *
-     * @return UpdateFactory
+     * @param RequestFactory $requestFactory
+     *
+     * @return $this
      */
-    public function getUpdateRequestFactory()
+    public function setRequestFactory(RequestFactory $requestFactory)
     {
-        if (null === $this->updateRequestFactory) {
-            $this->updateRequestFactory = new UpdateFactory();
-        }
+        $this->requestFactory = $requestFactory;
 
-        return $this->updateRequestFactory;
+        return $this;
     }
 
     /**
@@ -172,12 +147,17 @@ class Client
      */
     public function alive(AliveOptions $options)
     {
-        $request = $this->getAliveRequestFactory()->createRequest($options);
+        $request = $this->getRequestFactory()->createAliveRequest($options);
         $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
 
-        $socket = $this->getMulticastFactory()->createSender();
-
-        $socket->send($data, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+        $socket = $this->getSocketFactory()->createUdp4();
+        $socket->setOption(SOL_SOCKET, SO_BROADCAST, 1);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_IF, 0);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_LOOP, 0);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_TTL, 4);
+        $socket->setOption(IPPROTO_IP, MCAST_JOIN_GROUP, ['group' => self::MULTICAST_ADDRESS, 'interface' => 0]);
+        $socket->bind('0.0.0.0');
+        $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
 
         return $this;
     }
@@ -191,12 +171,17 @@ class Client
      */
     public function byebye(ByebyeOptions $options)
     {
-        $request = $this->getByebyeRequestFactory()->createRequest($options);
+        $request = $this->getRequestFactory()->createByebyeRequest($options);
         $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
 
-        $socket = $this->getMulticastFactory()->createSender();
-
-        $socket->send($data, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+        $socket = $this->getSocketFactory()->createUdp4();
+        $socket->setOption(SOL_SOCKET, SO_BROADCAST, 1);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_IF, 0);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_LOOP, 0);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_TTL, 4);
+        $socket->setOption(IPPROTO_IP, MCAST_JOIN_GROUP, ['group' => self::MULTICAST_ADDRESS, 'interface' => 0]);
+        $socket->bind('0.0.0.0');
+        $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
 
         return $this;
     }
@@ -207,36 +192,55 @@ class Client
      * @param DiscoverOptions $options
      * @param int $timeout
      *
-     * @return PromiseInterface
+     * @return $this
      */
     public function discover(DiscoverOptions $options, $timeout = 2)
     {
-        $request = $this->getDiscoverRequestFactory()->createRequest($options);
+        $request = $this->getRequestFactory()->createDiscoverRequest($options);
         $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
 
-        $socket = $this->getMulticastFactory()->createSender();
+        $socket = $this->getSocketFactory()->createUdp4();
+        $socket->setOption(SOL_SOCKET, SO_BROADCAST, 1);
 
-        $timer = $this->loop->addTimer($timeout, function () use ($socket, &$deferred) {
-            $deferred->resolve();
+        try {
+            $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+        } catch (SocketException $exception) {
             $socket->close();
-        });
 
-        $deferred = new Deferred(function () use ($socket, &$timer) {
-            $timer->cancel();
-            $socket->close();
-            throw new \RuntimeException('Discovery cancelled.');
-        });
+            $event = new DiscoverEvent();
+            $event->setException(new DiscoverException('Error sending discover broadcast', 0, $exception));
+            $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER_ERROR, $event);
 
-        $socket->on('message', function ($message, $remote) use ($deferred) {
-            $deferred->notify([
-                'message' => $this->parseMessage($message),
-                'remote' => $remote
-            ]);
-        });
+            return $this;
+        }
 
-        $socket->send($data, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+        $socket->setOption(SOL_SOCKET, SO_RCVTIMEO, ['sec' => $timeout, 'usec' => 0]);
+        do {
+            try {
+                $message = $socket->recvFrom(1024, MSG_WAITALL, $remote);
+            } catch (SocketException $exception) {
+                if (SOCKET_EAGAIN === $exception->getCode()) {
+                    break;
+                }
 
-        return $deferred->promise();
+                $socket->close();
+
+                $event = new DiscoverEvent();
+                $event->setException(new DiscoverException('Error receiving discover message', 0, $exception));
+                $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER_ERROR, $event);
+
+                return $this;
+            }
+
+            if (null !== $message) {
+                $event = $this->createDiscoverEvent($message)->setRemote($remote);
+                $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER, $event);
+            }
+        } while (null !== $message);
+
+        $socket->close();
+
+        return $this;
     }
 
     /**
@@ -248,53 +252,58 @@ class Client
      */
     public function update(UpdateOptions $options)
     {
-        $request = $this->getUpdateRequestFactory()->createRequest($options);
+        $request = $this->getRequestFactory()->createUpdateRequest($options);
         $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
 
-        $socket = $this->getMulticastFactory()->createSender();
-
-        $socket->send($data, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+        $socket = $this->getSocketFactory()->createUdp4();
+        $socket->setOption(SOL_SOCKET, SO_BROADCAST, 1);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_IF, 0);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_LOOP, 0);
+        $socket->setOption(IPPROTO_IP, IP_MULTICAST_TTL, 4);
+        $socket->setOption(IPPROTO_IP, MCAST_JOIN_GROUP, ['group' => self::MULTICAST_ADDRESS, 'interface' => 0]);
+        $socket->bind('0.0.0.0');
+        $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
 
         return $this;
     }
 
     /**
-     * Parse message
+     * Create discover event
      *
      * @param string $message
      *
-     * @return Message
+     * @return DiscoverEvent
      */
-    protected function parseMessage($message)
+    protected function createDiscoverEvent($message)
     {
         $response = ResponseSerializer::fromString($message);
-        $message = new Message();
+        $event = new DiscoverEvent();
 
         if ($response->hasHeader('CACHE-CONTROL')) {
             $value = $response->getHeaderLine('CACHE-CONTROL');
-            $message->setLifetime(intval(substr($value, strpos($value, '=') + 1)));
+            $event->setLifetime(intval(substr($value, strpos($value, '=') + 1)));
         }
 
         if ($response->hasHeader('DATE')) {
-            $message->setDate(new \DateTime($response->getHeaderLine('DATE')));
+            $event->setDate(new \DateTime($response->getHeaderLine('DATE')));
         }
 
         if ($response->hasHeader('LOCATION')) {
-            $message->setDescriptionUrl(new Uri($response->getHeaderLine('LOCATION')));
+            $event->setDescriptionUrl(new Uri($response->getHeaderLine('LOCATION')));
         }
 
         if ($response->hasHeader('SERVER')) {
-            $message->setServerString($response->getHeaderLine('SERVER'));
+            $event->setServerString($response->getHeaderLine('SERVER'));
         }
 
         if ($response->hasHeader('ST')) {
-            $message->setSearchTargetString($response->getHeaderLine('ST'));
+            $event->setSearchTargetString($response->getHeaderLine('ST'));
         }
 
         if ($response->hasHeader('USN')) {
-            $message->setUniqueServiceNameString($response->getHeaderLine('USN'));
+            $event->setUniqueServiceNameString($response->getHeaderLine('USN'));
         }
 
-        return $message;
+        return $event;
     }
 }

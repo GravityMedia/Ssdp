@@ -5,17 +5,28 @@
  * @author Daniel Schröder <daniel.schroeder@gravitymedia.de>
  */
 
-namespace GravityMedia\Ssdp;
+namespace GravityMedia\Ssdp\Event;
 
+use GravityMedia\Ssdp\Exception\DiscoverException;
 use Psr\Http\Message\UriInterface;
 
+use Symfony\Component\EventDispatcher\Event;
+
 /**
- * Message class
+ * Discover event class
  *
  * @package GravityMedia\Ssdp
  */
-class Message
+class DiscoverEvent extends Event
 {
+    const EVENT_DISCOVER = 'ssdp:discover';
+    const EVENT_DISCOVER_ERROR = 'ssdp:discover:error';
+
+    /**
+     * @var DiscoverException
+     */
+    protected $exception;
+
     /**
      * @var int
      */
@@ -45,6 +56,34 @@ class Message
      * @var string
      */
     protected $uniqueServiceNameString;
+
+    /**
+     * @var string
+     */
+    protected $remote;
+
+    /**
+     * Get exception
+     *
+     * @return DiscoverException
+     */
+    public function getException()
+    {
+        return $this->exception;
+    }
+
+    /**
+     * Set exception
+     *
+     * @param DiscoverException $exception
+     *
+     * @return $this
+     */
+    public function setException(DiscoverException $exception)
+    {
+        $this->exception = $exception;
+        return $this;
+    }
 
     /**
      * Get lifetime
@@ -181,6 +220,29 @@ class Message
     public function setUniqueServiceNameString($uniqueServiceNameString)
     {
         $this->uniqueServiceNameString = $uniqueServiceNameString;
+        return $this;
+    }
+
+    /**
+     * Get remote
+     *
+     * @return string
+     */
+    public function getRemote()
+    {
+        return $this->remote;
+    }
+
+    /**
+     * Set remote
+     *
+     * @param string $remote
+     *
+     * @return $this
+     */
+    public function setRemote($remote)
+    {
+        $this->remote = $remote;
         return $this;
     }
 }
