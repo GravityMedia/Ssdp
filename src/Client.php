@@ -9,13 +9,15 @@ namespace GravityMedia\Ssdp;
 
 use GravityMedia\Ssdp\Event\DiscoverEvent;
 use GravityMedia\Ssdp\Exception\DiscoverException;
+use GravityMedia\Ssdp\Multicast\Factory as MulticastFactory;
 use GravityMedia\Ssdp\Options\AliveOptions;
 use GravityMedia\Ssdp\Options\ByebyeOptions;
 use GravityMedia\Ssdp\Options\DiscoverOptions;
 use GravityMedia\Ssdp\Options\UpdateOptions;
 use GravityMedia\Ssdp\Request\Factory as RequestFactory;
+use Psr\Http\Message\RequestInterface;
 use Socket\Raw\Exception as SocketException;
-use Socket\Raw\Factory as SocketFactory;
+use Socket\Raw\Socket;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Zend\Diactoros\Request\Serializer as RequestSerializer;
@@ -45,9 +47,9 @@ class Client
     protected $eventDispatcher;
 
     /**
-     * @var SocketFactory
+     * @var MulticastFactory
      */
-    protected $socketFactory;
+    protected $multicastFactory;
 
     /**
      * @var RequestFactory
@@ -83,29 +85,29 @@ class Client
     }
 
     /**
-     * Get socket factory
+     * Get multicast factory
      *
-     * @return SocketFactory
+     * @return MulticastFactory
      */
-    public function getSocketFactory()
+    public function getMulticastFactory()
     {
-        if (null === $this->socketFactory) {
-            $this->socketFactory = new SocketFactory();
+        if (null === $this->multicastFactory) {
+            $this->multicastFactory = new MulticastFactory();
         }
 
-        return $this->socketFactory;
+        return $this->multicastFactory;
     }
 
     /**
-     * Set socket factory
+     * Set multicast factory
      *
-     * @param SocketFactory $socketFactory
+     * @param MulticastFactory $multicastFactory
      *
      * @return $this
      */
-    public function setSocketFactory(SocketFactory $socketFactory)
+    public function setMulticastFactory(MulticastFactory $multicastFactory)
     {
-        $this->socketFactory = $socketFactory;
+        $this->multicastFactory = $multicastFactory;
 
         return $this;
     }
@@ -139,27 +141,75 @@ class Client
     }
 
     /**
+     * Send request
+     *
+     * @param Socket $socket
+     * @param RequestInterface $request
+     * @param callable $onSuccess
+     * @param callable $onFailure
+     *
+     * @return boolean
+     */
+    protected function sendRequest(Socket $socket, RequestInterface $request, $onSuccess, $onFailure)
+    {
+        $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
+
+        try {
+            $bytes = $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+        } catch (SocketException $exception) {
+            return $onFailure($socket, $exception);
+        }
+
+        return $onSuccess($socket, $bytes);
+    }
+
+    /**
+     * Receive response
+     *
+     * @param Socket $socket
+     * @param callable $onSuccess
+     * @param callable $onFailure
+     *
+     * @return boolean
+     */
+    protected function receiveResponse(Socket $socket, $onSuccess, $onFailure)
+    {
+        try {
+            $message = $socket->recvFrom(1024, MSG_WAITALL, $remote);
+        } catch (SocketException $exception) {
+            return $onFailure($socket, $exception);
+        }
+
+        return $onSuccess($socket, $message, $remote);
+    }
+
+    /**
      * Send alive request
      *
      * @param AliveOptions $options
      *
-     * @return PromiseInterface
+     * @return boolean
      */
     public function alive(AliveOptions $options)
     {
-        $request = $this->getRequestFactory()->createAliveRequest($options);
-        $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
+        return $this->sendRequest(
+            $this->getMulticastFactory()->createSocket(self::MULTICAST_ADDRESS),
+            $this->getRequestFactory()->createAliveRequest($options),
+            function (Socket $socket) {
+                $socket->close();
 
-        $socket = $this->getSocketFactory()->createUdp4();
-        $socket->setOption(SOL_SOCKET, SO_BROADCAST, 1);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_IF, 0);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_LOOP, 0);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_TTL, 4);
-        $socket->setOption(IPPROTO_IP, MCAST_JOIN_GROUP, ['group' => self::MULTICAST_ADDRESS, 'interface' => 0]);
-        $socket->bind('0.0.0.0');
-        $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+                return true;
+            },
+            function (Socket $socket, SocketException $exception) {
+                $socket->close();
 
-        return $this;
+                $event = new DiscoverEvent();
+                $event->setException(new DiscoverException('Error sending alive broadcast', 0, $exception));
+                $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER_ERROR, $event);
+
+                return false;
+            }
+        );
     }
 
     /**
@@ -167,23 +217,28 @@ class Client
      *
      * @param ByebyeOptions $options
      *
-     * @return PromiseInterface
+     * @return boolean
      */
     public function byebye(ByebyeOptions $options)
     {
-        $request = $this->getRequestFactory()->createByebyeRequest($options);
-        $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
+        return $this->sendRequest(
+            $this->getMulticastFactory()->createSocket(self::MULTICAST_ADDRESS),
+            $this->getRequestFactory()->createByebyeRequest($options),
+            function (Socket $socket) {
+                $socket->close();
 
-        $socket = $this->getSocketFactory()->createUdp4();
-        $socket->setOption(SOL_SOCKET, SO_BROADCAST, 1);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_IF, 0);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_LOOP, 0);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_TTL, 4);
-        $socket->setOption(IPPROTO_IP, MCAST_JOIN_GROUP, ['group' => self::MULTICAST_ADDRESS, 'interface' => 0]);
-        $socket->bind('0.0.0.0');
-        $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+                return true;
+            },
+            function (Socket $socket, SocketException $exception) {
+                $socket->close();
 
-        return $this;
+                $event = new DiscoverEvent();
+                $event->setException(new DiscoverException('Error sending byebye broadcast', 0, $exception));
+                $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER_ERROR, $event);
+
+                return false;
+            }
+        );
     }
 
     /**
@@ -192,55 +247,57 @@ class Client
      * @param DiscoverOptions $options
      * @param int $timeout
      *
-     * @return $this
+     * @return boolean
      */
     public function discover(DiscoverOptions $options, $timeout = 2)
     {
-        $request = $this->getRequestFactory()->createDiscoverRequest($options);
-        $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
+        return $this->sendRequest(
+            $this->getMulticastFactory()->createSocket(self::MULTICAST_ADDRESS, $timeout),
+            $this->getRequestFactory()->createDiscoverRequest($options),
+            function (Socket $socket) {
+                do {
+                    $continue = $this->receiveResponse(
+                        $socket,
+                        function (Socket $socket, $message, $remote) {
+                            if (null === $message) {
+                                return false;
+                            }
 
-        $socket = $this->getSocketFactory()->createUdp4();
-        $socket->setOption(SOL_SOCKET, SO_BROADCAST, 1);
+                            $event = $this->createDiscoverEvent($message)->setRemote($remote);
+                            $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER, $event);
 
-        try {
-            $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
-        } catch (SocketException $exception) {
-            $socket->close();
+                            return true;
+                        },
+                        function (Socket $socket, SocketException $exception) {
+                            if (SOCKET_EAGAIN === $exception->getCode()) {
+                                return false;
+                            }
 
-            $event = new DiscoverEvent();
-            $event->setException(new DiscoverException('Error sending discover broadcast', 0, $exception));
-            $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER_ERROR, $event);
+                            $exception = new DiscoverException('Error receiving discover message', 0, $exception);
+                            $event = new DiscoverEvent();
+                            $event->setException($exception);
+                            $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER_ERROR, $event);
 
-            return $this;
-        }
+                            return false;
+                        }
+                    );
 
-        $socket->setOption(SOL_SOCKET, SO_RCVTIMEO, ['sec' => $timeout, 'usec' => 0]);
-        do {
-            try {
-                $message = $socket->recvFrom(1024, MSG_WAITALL, $remote);
-            } catch (SocketException $exception) {
-                if (SOCKET_EAGAIN === $exception->getCode()) {
-                    break;
-                }
+                } while ($continue);
 
                 $socket->close();
 
+                return true;
+            },
+            function (Socket $socket, SocketException $exception) {
+                $socket->close();
+
                 $event = new DiscoverEvent();
-                $event->setException(new DiscoverException('Error receiving discover message', 0, $exception));
+                $event->setException(new DiscoverException('Error sending discover broadcast', 0, $exception));
                 $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER_ERROR, $event);
 
-                return $this;
+                return false;
             }
-
-            if (null !== $message) {
-                $event = $this->createDiscoverEvent($message)->setRemote($remote);
-                $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER, $event);
-            }
-        } while (null !== $message);
-
-        $socket->close();
-
-        return $this;
+        );
     }
 
     /**
@@ -248,23 +305,28 @@ class Client
      *
      * @param UpdateOptions $options
      *
-     * @return PromiseInterface
+     * @return boolean
      */
     public function update(UpdateOptions $options)
     {
-        $request = $this->getRequestFactory()->createUpdateRequest($options);
-        $data = trim(RequestSerializer::toString($request)) . "\r\n\r\n";
+        return $this->sendRequest(
+            $this->getMulticastFactory()->createSocket(self::MULTICAST_ADDRESS),
+            $this->getRequestFactory()->createUpdateRequest($options),
+            function (Socket $socket) {
+                $socket->close();
 
-        $socket = $this->getSocketFactory()->createUdp4();
-        $socket->setOption(SOL_SOCKET, SO_BROADCAST, 1);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_IF, 0);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_LOOP, 0);
-        $socket->setOption(IPPROTO_IP, IP_MULTICAST_TTL, 4);
-        $socket->setOption(IPPROTO_IP, MCAST_JOIN_GROUP, ['group' => self::MULTICAST_ADDRESS, 'interface' => 0]);
-        $socket->bind('0.0.0.0');
-        $socket->sendTo($data, 0, sprintf('%s:%s', self::MULTICAST_ADDRESS, self::MULTICAST_PORT));
+                return true;
+            },
+            function (Socket $socket, SocketException $exception) {
+                $socket->close();
 
-        return $this;
+                $event = new DiscoverEvent();
+                $event->setException(new DiscoverException('Error sending byebye broadcast', 0, $exception));
+                $this->getEventDispatcher()->dispatch(DiscoverEvent::EVENT_DISCOVER_ERROR, $event);
+
+                return false;
+            }
+        );
     }
 
     /**

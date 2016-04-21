@@ -8,12 +8,12 @@
 namespace GravityMedia\SsdpTest;
 
 use GravityMedia\Ssdp\Client;
+use GravityMedia\Ssdp\Multicast\Factory as MulticastFactory;
 use GravityMedia\Ssdp\Options\DiscoverOptions;
 use GravityMedia\Ssdp\Request\Factory as RequestFactory;
 use GravityMedia\Ssdp\Request\SearchRequest;
 use Prophecy\Argument;
 use Psr\Http\Message\RequestInterface;
-use Socket\Raw\Factory as SocketFactory;
 use Socket\Raw\Socket;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -37,15 +37,27 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
         $socket = $this->prophesize(Socket::class);
 
-        $socketFactory = $this->prophesize(SocketFactory::class);
-        $socketFactory->createUdp4()->willReturn($socket->reveal());
+        $multicastFactory = $this->prophesize(MulticastFactory::class);
+        $multicastFactory
+            ->createSocket(Argument::exact(Client::MULTICAST_ADDRESS), Argument::type('int'))
+            ->willReturn($socket->reveal());
 
         $request = $this->prophesize(RequestInterface::class);
-        $request->getMethod()->willReturn(SearchRequest::METHOD);
-        $request->getHeaders()->willReturn([]);
-        $request->getBody()->willReturn('');
-        $request->getRequestTarget()->willReturn('*');
-        $request->getProtocolVersion()->willReturn('1.1');
+        $request
+            ->getMethod()
+            ->willReturn(SearchRequest::METHOD);
+        $request
+            ->getHeaders()
+            ->willReturn([]);
+        $request
+            ->getBody()
+            ->willReturn('');
+        $request
+            ->getRequestTarget()
+            ->willReturn('*');
+        $request
+            ->getProtocolVersion()
+            ->willReturn('1.1');
 
         $requestFactory = $this->prophesize(RequestFactory::class);
         $requestFactory
@@ -56,7 +68,7 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
         $client = new Client();
         $client->setEventDispatcher($eventDispatcher->reveal());
-        $client->setSocketFactory($socketFactory->reveal());
+        $client->setMulticastFactory($multicastFactory->reveal());
         $client->setRequestFactory($requestFactory->reveal());
 
         $client->discover($discoverOptions->reveal());
