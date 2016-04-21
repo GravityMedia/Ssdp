@@ -38,29 +38,29 @@ require 'vendor/autoload.php';
 
 // Import classes
 use GravityMedia\Ssdp\Client;
+use GravityMedia\Ssdp\Event\DiscoverEvent;
+use GravityMedia\Ssdp\Options\AliveOptions;
 use GravityMedia\Ssdp\Options\DiscoverOptions;
-use React\EventLoop\Factory as LoopFactory;
+use GravityMedia\Ssdp\UniqueServiceName;
 
-// Create event dispatcher
-$loop = LoopFactory::create();
-$client = new Client($loop);
+// Create client
+$client = new Client();
 
+// Add listeners
+$client->getEventDispatcher()
+    ->addListener(DiscoverEvent::EVENT_DISCOVER, function (DiscoverEvent $event) {
+        var_dump($event);
+    });
+$client->getEventDispatcher()
+    ->addListener(DiscoverEvent::EVENT_DISCOVER_ERROR, function (DiscoverEvent $event) {
+        var_dump($event->getException());
+    });
+
+// Create options
 $options = new DiscoverOptions();
 
-$client->discover($options)->then(
-    function () {
-        print 'Discovery completed.' . PHP_EOL;
-    },
-    function ($reason) {
-        print 'An error occurred: ' . $reason . PHP_EOL;
-    },
-    function ($progress) {
-        print 'Device found:' . PHP_EOL;
-        var_dump($progress);
-    }
-);
-
-$loop->run();
+// Discover devices and services
+$client->discover($options);
 ```
 
 ## Testing
